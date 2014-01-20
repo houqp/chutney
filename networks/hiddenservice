@@ -1,0 +1,8 @@
+Authority = Node(tag="a", authority=1, relay=1, torrc="authority.tmpl")
+Relay = Node(tag="r", relay=1, torrc="relay.tmpl")
+Client = Node(tag="c", torrc="client.tmpl")
+HiddenService = Node(tag="h", torrc="hiddenservice.tmpl")
+
+NODES = Authority.getN(3) + Relay.getN(5) + Client.getN(2) + HiddenService.getN(1)
+
+ConfigureNodes(NODES)
