@@ -493,6 +493,10 @@ DEFAULTS = {
     'core' : True,
 }
 
+ENV_DEF_MAP = {
+    'tor' : 'CHUTNEY_TOR',
+}
+
 class TorEnviron(chutney.Templating.Environ):
     """Subclass of chutney.Templating.Environ to implement commonly-used
        substitutions.
@@ -687,6 +691,11 @@ def runConfigFile(verb, f):
 def main():
     global _BASE_ENVIRON
     global _THE_NETWORK
+
+    for k in ENV_DEF_MAP:
+        if os.environ[ENV_DEF_MAP[k]]:
+            DEFAULTS[k] = os.environ[ENV_DEF_MAP[k]]
+
     _BASE_ENVIRON = TorEnviron(chutney.Templating.Environ(**DEFAULTS))
     _THE_NETWORK = Network(_BASE_ENVIRON)
 
