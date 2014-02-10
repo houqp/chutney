@@ -639,6 +639,10 @@ class Network(object):
             for c in controllers:
                 if c.isRunning():
                     c.stop(sig=sig)
+                elif os.path.exists(c._env['lockfile']):
+                    # check lock file for cleanup
+                    print "Left over stale lock file, cleaning up"
+                    os.remove(c._env['lockfile'])
             print "Waiting for nodes to finish."
             for n in xrange(15):
                 time.sleep(1)
