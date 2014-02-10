@@ -495,6 +495,7 @@ DEFAULTS = {
 
 ENV_DEF_MAP = {
     'tor' : 'CHUTNEY_TOR',
+    'tor-gencert': 'CHUTNEY_TOR_GENCERT',
 }
 
 class TorEnviron(chutney.Templating.Environ):
@@ -543,7 +544,10 @@ class TorEnviron(chutney.Templating.Environ):
         return "test%03d%s"%(my['nodenum'], my['tag'])
 
     def _get_tor_gencert(self, my):
-        return my['tor']+"-gencert"
+        if my['tor-gencert']:
+            return my['tor-gencert']
+        else:
+            return my['tor']+"-gencert"
 
     def _get_auth_passphrase(self, my):
         return self['nick'] # OMG TEH SECURE!
