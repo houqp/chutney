@@ -551,6 +551,17 @@ class TorEnviron(chutney.Templating.Environ):
     def _get_torrc_template_path(self, my):
         return [ os.path.join(my['chutney_dir'], 'torrc_templates') ]
 
+    def _get_fingerprint(self, my):
+        fpf = os.path.join(self['dir'], 'fingerprint')
+        if os.path.exists(fpf):
+            return open(fpf).read().strip('\n')
+        else:
+            return 'Na'
+
+    def _get_lockfile(self, my):
+        """Return the name of the lock file"""
+        return os.path.join(self['dir'], 'lock')
+
 
 class Network(object):
     """A network of Tor nodes, plus functions to manipulate them
