@@ -408,6 +408,7 @@ class LocalNodeController(NodeController):
         running = self.isRunning(pid)
         nick = self._env['nick']
         dir = self._env['dir']
+        print "+++ " + self._env['fingerprint']
         if running:
             if listRunning:
                 print "%s is running with PID %s"%(nick,pid)
@@ -712,7 +713,7 @@ def main():
     global _THE_NETWORK
 
     for k in ENV_DEF_MAP:
-        if os.environ[ENV_DEF_MAP[k]]:
+        if os.environ.get(ENV_DEF_MAP[k]):
             DEFAULTS[k] = os.environ[ENV_DEF_MAP[k]]
 
     _BASE_ENVIRON = TorEnviron(chutney.Templating.Environ(**DEFAULTS))
