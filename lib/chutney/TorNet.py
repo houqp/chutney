@@ -35,6 +35,96 @@ def mkdir_p(d, mode=0777):
             return
         raise
 
+
+DEFAULTS = {
+    'authority' : False,
+    'bridgeauthority' : False,
+    'hasbridgeauth' : False,
+    'relay' : False,
+    'bridge' : False,
+    'connlimit' : 60,
+    'net_base_dir' : 'net',
+    'tor' : os.environ.get('CHUTNEY_TOR', 'tor'),
+    'tor-gencert' : os.environ.get('CHUTNEY_TOR_GENCERT', None),
+    'auth_cert_lifetime' : 12,
+    'ip' : '127.0.0.1',
+    'ipv6_addr' : None,
+    'dirserver_flags' : 'no-v2',
+    'chutney_dir' : '.',
+    'torrc_fname' : '${dir}/torrc',
+    'orport_base' : 5000,
+    'dirport_base' : 7000,
+    'controlport_base' : 8000,
+    'socksport_base' : 9000,
+    'authorities' : "AlternateDirAuthority bleargh bad torrc file!",
+    'bridges' : "Bridge bleargh bad torrc file!",
+    'core' : True,
+}
+
+class TorEnviron(chutney.Templating.Environ):
+    """Subclass of chutney.Templating.Environ to implement commonly-used
+       substitutions.
+
+       Environment fields provided:
+
+          orport, controlport, socksport, dirport:
+          dir:
+          nick:
+          tor_gencert:
+          auth_passphrase:
+          torrc_template_path:
+
+       Environment fields used:
+          nodenum
+          tag
+          orport_base, controlport_base, socksport_base, dirport_base
+          chutney_dir
+          tor
+
+       XXXX document the above.  Or document all fields in one place?
+    """
+    def __init__(self,parent=None,**kwargs):
+        chutney.Templating.Environ.__init__(self, parent=parent, **kwargs)
+
+    def _get_orport(self, my):
+        return my['orport_base']+my['nodenum']
+
+    def _get_controlport(self, my):
+        return my['controlport_base']+my['nodenum']
+
+    def _get_socksport(self, my):
+        return my['socksport_base']+my['nodenum']
+
+    def _get_dirport(self, my):
+        return my['dirport_base']+my['nodenum']
+
+    def _get_dir(self, my):
+        return os.path.abspath(os.path.join(my['net_base_dir'],
+                                            "nodes",
+                                         "%03d%s"%(my['nodenum'], my['tag'])))
+
+    def _get_nick(self, my):
+        return "test%03d%s"%(my['nodenum'], my['tag'])
+
+    def _get_tor_gencert(self, my):
+        if my['tor-gencert']:
+            return my['tor-gencert']
+        else:
+            return '{0}-gencert'.format(my['tor'])
+
+    def _get_auth_passphrase(self, my):
+        return self['nick'] # OMG TEH SECURE!
+
+    def _get_torrc_template_path(self, my):
+        return [ os.path.join(my['chutney_dir'], 'torrc_templates') ]
+
+    def _get_lockfile(self, my):
+        return os.path.join(self['dir'], 'lock')
+
+
+BaseEnviron = TorEnviron(chutney.Templating.Environ(**DEFAULTS))
+
+
 class Node(object):
     """A Node represents a Tor node or a set of Tor nodes.  It's created
        in a network configuration file.
@@ -106,7 +196,7 @@ class Node(object):
         """Return the default environment.  Any variables that we can't find
            set for any particular node, we look for here.
         """
-        return _BASE_ENVIRON
+        return BaseEnviron
 
 class _NodeCommon(object):
     """Internal helper class for functionality shared by some NodeBuilders
@@ -506,96 +596,9 @@ class LocalNodeController(NodeController):
         os.remove(lf)
 
 
-
-
-DEFAULTS = {
-    'authority' : False,
-    'bridgeauthority' : False,
-    'hasbridgeauth' : False,
-    'relay' : False,
-    'bridge' : False,
-    'connlimit' : 60,
-    'net_base_dir' : 'net',
-    'tor' : os.environ.get('CHUTNEY_TOR', 'tor'),
-    'tor-gencert' : os.environ.get('CHUTNEY_TOR_GENCERT', None),
-    'auth_cert_lifetime' : 12,
-    'ip' : '127.0.0.1',
-    'ipv6_addr' : None,
-    'dirserver_flags' : 'no-v2',
-    'chutney_dir' : '.',
-    'torrc_fname' : '${dir}/torrc',
-    'orport_base' : 5000,
-    'dirport_base' : 7000,
-    'controlport_base' : 8000,
-    'socksport_base' : 9000,
-    'authorities' : "AlternateDirAuthority bleargh bad torrc file!",
-    'bridges' : "Bridge bleargh bad torrc file!",
-    'core' : True,
-}
-
-class TorEnviron(chutney.Templating.Environ):
-    """Subclass of chutney.Templating.Environ to implement commonly-used
-       substitutions.
-
-       Environment fields provided:
-
-          orport, controlport, socksport, dirport:
-          dir:
-          nick:
-          tor_gencert:
-          auth_passphrase:
-          torrc_template_path:
-
-       Environment fields used:
-          nodenum
-          tag
-          orport_base, controlport_base, socksport_base, dirport_base
-          chutney_dir
-          tor
-
-       XXXX document the above.  Or document all fields in one place?
-    """
-    def __init__(self,parent=None,**kwargs):
-        chutney.Templating.Environ.__init__(self, parent=parent, **kwargs)
-
-    def _get_orport(self, my):
-        return my['orport_base']+my['nodenum']
-
-    def _get_controlport(self, my):
-        return my['controlport_base']+my['nodenum']
-
-    def _get_socksport(self, my):
-        return my['socksport_base']+my['nodenum']
-
-    def _get_dirport(self, my):
-        return my['dirport_base']+my['nodenum']
-
-    def _get_dir(self, my):
-        return os.path.abspath(os.path.join(my['net_base_dir'],
-                                            "nodes",
-                                         "%03d%s"%(my['nodenum'], my['tag'])))
-
-    def _get_nick(self, my):
-        return "test%03d%s"%(my['nodenum'], my['tag'])
-
-    def _get_tor_gencert(self, my):
-        if my['tor-gencert']:
-            return my['tor-gencert']
-        else:
-            return '{0}-gencert'.format(my['tor'])
-
-    def _get_auth_passphrase(self, my):
-        return self['nick'] # OMG TEH SECURE!
-
-    def _get_torrc_template_path(self, my):
-        return [ os.path.join(my['chutney_dir'], 'torrc_templates') ]
-
-    def _get_lockfile(self, my):
-        return os.path.join(self['dir'], 'lock')
-
-
 class Network(object):
-    """A network of Tor nodes, plus functions to manipulate them
+    """
+    A network of Tor nodes, plus functions to manipulate them
     """
     def __init__(self,defaultEnviron):
         self._nodes = []
@@ -704,59 +707,23 @@ class Network(object):
                                      ('localhost', int(op._env['socksport']))))
         return tt.run()
 
-def ConfigureNodes(nodelist):
-    network = _THE_NETWORK
 
-    for n in nodelist:
-        network._addNode(n)
-        if n._env['bridgeauthority']:
-            network._dfltEnv['hasbridgeauth'] = True
+def getNetworkByConfig(cfg):
+    _THE_NETWORK = Network(BaseEnviron)
 
-def usage(network):
-    return "\n".join(["Usage: chutney {command} {networkfile}",
-       "Known commands are: %s" % (
-        " ".join(x for x in dir(network) if not x.startswith("_")))])
+    def ConfigureNodes(nodelist):
+        network = _THE_NETWORK
 
-def exit_on_error(err_msg):
-    print "Error: {0}\n".format(err_msg)
-    print usage(_THE_NETWORK)
-    sys.exit(1)
+        for n in nodelist:
+            network._addNode(n)
+            if n._env['bridgeauthority']:
+                network._dfltEnv['hasbridgeauth'] = True
 
-def runConfigFile(verb, f):
-    _GLOBALS = dict(_BASE_ENVIRON= _BASE_ENVIRON,
-                    Node=Node,
+    VIRTUAL_ENV = dict(Node=Node,
                     ConfigureNodes=ConfigureNodes,
                     _THE_NETWORK=_THE_NETWORK)
 
-    exec f in _GLOBALS
-    network = _GLOBALS['_THE_NETWORK']
+    exec cfg in VIRTUAL_ENV
+    return VIRTUAL_ENV['_THE_NETWORK']
 
-    if not hasattr(network, verb):
-        print usage(network)
-        print "Error: I don't know how to %s." % verb
-        return
 
-    return getattr(network,verb)()
-
-def parseArgs():
-    if len(sys.argv) < 3:
-        exit_on_error("Not enough arguments given.")
-    if not os.path.isfile(sys.argv[2]):
-        exit_on_error("Cannot find networkfile: {0}.".format(sys.argv[2]))
-    return {'network_cfg': sys.argv[2], 'action': sys.argv[1]}
-
-def main():
-    global _BASE_ENVIRON
-    global _THE_NETWORK
-    _BASE_ENVIRON = TorEnviron(chutney.Templating.Environ(**DEFAULTS))
-    _THE_NETWORK = Network(_BASE_ENVIRON)
-
-    args = parseArgs()
-    f = open(args['network_cfg'])
-    result = runConfigFile(args['action'], f)
-    if result is False:
-        return -1
-    return 0
-
-if __name__ == '__main__':
-    sys.exit(main())
