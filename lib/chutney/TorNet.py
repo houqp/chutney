@@ -468,6 +468,32 @@ class LocalNodeBuilder(NodeBuilder):
                                                self._env['orport'])
         return bridgelines
 
+
+class TorLockFile():
+    def __init__(self, path):
+        self.f = open(path)
+
+    def lock(self):
+        # @TODO: only support UNIX for now
+        try:
+            import fcntl
+        except ImportError as e:
+            pass
+        else:
+            fcntl.flock(self.f, fcntl.LOCK_EX|fcntl.LOCK_NB)
+
+    def unlock(self):
+        try:
+            import fcntl
+        except ImportError as e:
+            pass
+        else:
+            fcntl.flock(self.f, fcntl.LOCK_UN)
+
+    def close(self):
+        self.f.close()
+
+
 class LocalNodeController(NodeController):
     def __init__(self, env):
         NodeController.__init__(self, env)
@@ -552,6 +578,9 @@ class LocalNodeController(NodeController):
         if self.isRunning():
             print "%s is already running"%self._env['nick']
             return True
+        # check for stale lock file created by crash
+        self.cleanup_lockfile()
+
         tor_path = self._env['tor']
         torrc = self._getTorrcFname()
         cmdline = [
@@ -588,12 +617,21 @@ class LocalNodeController(NodeController):
         os.kill(pid, sig)
 
     def cleanup_lockfile(self):
-        lf = self._env['lockfile']
-        if self.isRunning() or (not os.path.exists(lf)):
+        lf_path = self._env['lockfile']
+        if self.isRunning() or (not os.path.exists(lf_path)):
             return
-        print 'Removing stale lock file for {0} ...'.format(
-                self._env['nick'])
-        os.remove(lf)
+        lf = TorLockFile(lf_path)
+        try:
+            lf.lock()
+        except IOError as e:
+            if e.errno == errno.EAGAIN:
+                print 'Removing stale lock file for {0} ...'.format(
+                        self._env['nick'])
+                lf.close()
+                os.remove(lf_path)
+        else:
+            lf.unlock()
+            lf.close()
 
 
 class Network(object):
@@ -673,9 +711,6 @@ class Network(object):
             for n in xrange(15):
                 time.sleep(1)
                 if all(not c.isRunning() for c in controllers):
-                    # check for stale lock file when Tor crashes
-                    for c in controllers:
-                        c.cleanup_lockfile()
                     return
                 sys.stdout.write(".")
                 sys.stdout.flush()
