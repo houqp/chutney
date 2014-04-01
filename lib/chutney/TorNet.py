@@ -21,8 +21,11 @@ import re
 import errno
 import time
 
+from stem.control import EventType
+
 import chutney.Templating
 import chutney.Traffic
+import chutney.TorControl
 
 def mkdir_p(d, mode=0777):
     """Create directory 'd' and all of its parents as needed.  Unlike
@@ -472,6 +475,7 @@ class LocalNodeController(NodeController):
     def __init__(self, env):
         NodeController.__init__(self, env)
         self._env = env
+        self.tc = None # tc will be initilized in start()
 
     def getPid(self):
         """Assuming that this node has its pidfile in ${dir}/pid, return
@@ -577,6 +581,9 @@ class LocalNodeController(NodeController):
                                                  " ".join(cmdline),
                                                  p.returncode)
             return False
+        self.tc = chutney.TorControl.connect(
+                port=self._env['controlport'],
+                password='chutneytest')
         return True
 
     def stop(self, sig=signal.SIGINT):
@@ -594,6 +601,24 @@ class LocalNodeController(NodeController):
         print 'Removing stale lock file for {0} ...'.format(
                 self._env['nick'])
         os.remove(lf)
+
+    def waitForEvent(self, ev_type_str, check_cb, timeout=None):
+        if not self.tc:
+            return False
+        def handle_ev(ev):
+            if check_cb(ev):
+                self.wait_ev_matched = True
+        self.wait_ev_matched = False
+        self.wait_ev_timeout = timeout
+        self.tc.add_event_listener(handle_ev, getattr(EventType, ev_type_str))
+        while not self.wait_ev_matched:
+            if self.wait_ev_timeout:
+                self.wait_ev_timeout -= 1
+                if self.wait_ev_timeout <= 0:
+                    return False
+            time.sleep(1)
+        self.tc.remove_event_listener(handle_ev)
+        return True
 
 
 class Network(object):
@@ -613,6 +638,9 @@ class Network(object):
     def _checkConfig(self):
         for n in self._nodes:
             n.getBuilder().checkConfig(self)
+
+    def getNodeByTag(self, tag):
+        return [n for n in self._nodes if n._env['tag'] == tag]
 
     def configure(self):
         network = self

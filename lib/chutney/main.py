@@ -17,8 +17,14 @@ def exit_on_error(err_msg):
     print usage(TorNet.Network(TorNet.BaseEnviron))
     sys.exit(1)
 
+def getNetworkByConfigFile(cfgf):
+    cfg = open(cfgf)
+    nw = TorNet.getNetworkByConfig(cfg)
+    cfg.close()
+    return nw
+
 def runConfigFile(verb, cfg):
-    network = TorNet.getNetworkByConfig(cfg)
+    network = getNetworkByConfigFile(cfg)
     if not hasattr(network, verb):
         print usage(network)
         print "Error: I don't know how to %s." % verb
@@ -30,16 +36,17 @@ def parseArgs():
     if len(sys.argv) < 3:
         exit_on_error("Not enough arguments given.")
     if not os.path.isfile(sys.argv[2]):
-        exit_on_error("Cannot find networkfile: {0}.".format(sys.argv[2]))
+        exit_on_error("Cannot find config file: {0}.".format(sys.argv[2]))
     return {'network_cfg': sys.argv[2], 'action': sys.argv[1]}
 
 def main():
     args = parseArgs()
-    cfg = open(args['network_cfg'])
-    result = runConfigFile(args['action'], cfg)
-    cfg.close()
-    if result is False:
-        return -1
+    if args['action'] == 'test':
+        exec open(args['network_cfg'])
+    else:
+        result = runConfigFile(args['action'], args['network_cfg'])
+        if result is False:
+            return -1
     return 0
 
 
